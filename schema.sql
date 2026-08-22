@@ -133,3 +133,36 @@ CREATE TABLE IF NOT EXISTS document_links (
   PRIMARY KEY (from_id, to_id, kind),
   INDEX idx_link_to (to_id)
 );
+
+CREATE TABLE IF NOT EXISTS journals (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  entry_date DATE NOT NULL,
+  entry_at DATETIME NULL,
+  title VARCHAR(180) NULL,
+  body TEXT NOT NULL,
+  source VARCHAR(32) NOT NULL DEFAULT 'dictation',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_journal_date (entry_date)
+);
+
+CREATE TABLE IF NOT EXISTS journal_entities (
+  journal_id INT UNSIGNED NOT NULL,
+  entity_id INT UNSIGNED NOT NULL,
+  role VARCHAR(64) NOT NULL DEFAULT '',
+  PRIMARY KEY (journal_id, entity_id, role),
+  INDEX idx_je_ent (entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS measurements (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  taken_on DATE NOT NULL,
+  taken_at DATETIME NULL,
+  kind VARCHAR(32) NOT NULL DEFAULT 'weight',
+  value_num DECIMAL(8,2) NOT NULL,
+  unit VARCHAR(16) NOT NULL DEFAULT 'lb',
+  conditions VARCHAR(180) NULL,
+  journal_id INT UNSIGNED NULL,
+  notes VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ms_kind_date (kind, taken_on)
+);

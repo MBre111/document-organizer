@@ -150,11 +150,57 @@ function migrate_catalog_schema(PDO $pdo): void
             ) DEFAULT CHARSET=utf8mb4"
         );
     }
+    $journals = $pdo->query("SHOW TABLES LIKE 'journals'")->fetch();
+    if (!$journals) {
+        $pdo->exec(
+            "CREATE TABLE journals (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                entry_date DATE NOT NULL,
+                entry_at DATETIME NULL,
+                title VARCHAR(180) NULL,
+                body TEXT NOT NULL,
+                source VARCHAR(32) NOT NULL DEFAULT 'dictation',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_journal_date (entry_date)
+            ) DEFAULT CHARSET=utf8mb4"
+        );
+    }
+    $je = $pdo->query("SHOW TABLES LIKE 'journal_entities'")->fetch();
+    if (!$je) {
+        $pdo->exec(
+            "CREATE TABLE journal_entities (
+                journal_id INT UNSIGNED NOT NULL,
+                entity_id INT UNSIGNED NOT NULL,
+                role VARCHAR(64) NOT NULL DEFAULT '',
+                PRIMARY KEY (journal_id, entity_id, role),
+                INDEX idx_je_ent (entity_id)
+            ) DEFAULT CHARSET=utf8mb4"
+        );
+    }
+    $ms = $pdo->query("SHOW TABLES LIKE 'measurements'")->fetch();
+    if (!$ms) {
+        $pdo->exec(
+            "CREATE TABLE measurements (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                taken_on DATE NOT NULL,
+                taken_at DATETIME NULL,
+                kind VARCHAR(32) NOT NULL DEFAULT 'weight',
+                value_num DECIMAL(8,2) NOT NULL,
+                unit VARCHAR(16) NOT NULL DEFAULT 'lb',
+                conditions VARCHAR(180) NULL,
+                journal_id INT UNSIGNED NULL,
+                notes VARCHAR(255) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_ms_kind_date (kind, taken_on)
+            ) DEFAULT CHARSET=utf8mb4"
+        );
+    }
     seed_known_cases($pdo);
     merge_windsor_llc($pdo);
     seed_all_deadlines($pdo);
     prune_deadline_noise($pdo);
     retag_entry_notices($pdo);
+    seed_journal_2026_08_22($pdo);
 }
 
 function retag_entry_notices(PDO $pdo): void
@@ -387,6 +433,86 @@ function seed_untrusted_options(PDO $pdo): void
             json_encode($seeds[$key]['options'], JSON_UNESCAPED_UNICODE),
             (int) $row['id'],
         ]);
+    }
+}
+
+function ensure_named_entity(PDO $pdo, string $kind, string $name, ?string $notes = null): int
+{
+    $stmt = $pdo->prepare('SELECT id, notes FROM entities WHERE kind = ? AND name = ? LIMIT 1');
+    $stmt->execute([$kind, $name]);
+    $row = $stmt->fetch();
+    if ($row) {
+        $id = (int) $row['id'];
+        if ($notes && (trim((string) $row['notes']) === '' || !str_contains((string) $row['notes'], $notes))) {
+            $pdo->prepare(
+                "UPDATE entities SET notes = CONCAT(IFNULL(notes,''), IF(IFNULL(notes,'')='','','\n\n'), ?) WHERE id = ?"
+            )->execute([$notes, $id]);
+        }
+        return $id;
+    }
+    $pdo->prepare('INSERT INTO entities (kind, name, notes) VALUES (?, ?, ?)')->execute([$kind, $name, $notes]);
+    return (int) $pdo->lastInsertId();
+}
+
+function seed_journal_2026_08_22(PDO $pdo): void
+{
+    if (!table_exists($pdo, 'journals')) {
+        return;
+    }
+    $exists = $pdo->prepare('SELECT id FROM journals WHERE entry_date = ? LIMIT 1');
+    $exists->execute(['2026-08-22']);
+    if ($exists->fetch()) {
+        return;
+    }
+    $body = <<<'TXT'
+Hey, I'm Michael. This will be my first dictated journal entry. I'm writing this today on Saturday, August 22nd, 2026 at about 5:40 PM. Today was a pretty good day. I woke up around 6 AM to drive Olivia to work. Olivia works at Waverly Assisted Living. After I got back home around 7 AM, I got in the sauna for about an hour and took my morning supplements and medication. I try to weigh myself most mornings. And I'd like to maybe start keeping a timeline of my weight. But my weight this morning was 196.9 pounds. And when I take my weight, I'm naked. And it is before eating or drinking anything for the day. I took my dogs for a walk this morning as well. And I started organizing to get ready to move by the end of the month. I'm trying to organize all of my stuff. So anything that I do not need within 30 days, I'm trying to pack up by the end of the weekend here. And get it to a new storage locker I'm going to set up on Monday. That way I'll be moving much lighter at the very end of the month. I'm pretty excited about the document organizer that we're building here, which is really going to become a life organizer for me. I've started taking lots of pictures and soon I'll be uploading even more documents so that we can create a really strong database with all of my information. I'm going to try to do these journal entries every day and allow Grok to read my journal entry and take any pertinent information and create wiki entity pages that are needed that link back to the journal. And the journal entry itself should also be stored in the SQL database because I'm going to have these journal entries every day. And I'm eventually going to ask you for some insight on what we should do next based on my dictations.
+TXT;
+    $pdo->prepare(
+        'INSERT INTO journals (entry_date, entry_at, title, body, source) VALUES (?, ?, ?, ?, ?)'
+    )->execute(['2026-08-22', '2026-08-22 17:40:00', 'First dictated journal', $body, 'dictation']);
+    $jid = (int) $pdo->lastInsertId();
+
+    $mike = ensure_named_entity($pdo, 'person', 'Michael David Bredin', 'Morning routine (journal 2026-08-22): sauna ~1 hour after 7 AM, supplements and medication, fasted naked weigh-in, dog walk. Packing 30-day-not-needed items for a Monday storage locker; wants to move lighter by end of August 2026.');
+    $olivia = ensure_named_entity($pdo, 'person', 'Olivia Lazarus', 'Works at Waverly Assisted Living (journal 2026-08-22). Michael drove her to work around 6 AM that day.');
+    $waverly = ensure_named_entity($pdo, 'org', 'Waverly Assisted Living', 'Olivia\'s workplace. Mentioned 2026-08-22.');
+    $dogs = ensure_named_entity($pdo, 'asset', 'Dogs', 'Walked the morning of 2026-08-22. Individual names not listed in that entry.');
+    $locker = ensure_named_entity($pdo, 'place', 'Storage locker (new, Monday setup)', 'Michael planned to set up a new storage locker on Monday 2026-08-24 for anything not needed within 30 days, so the end-of-month move is lighter.');
+    $move = ensure_named_entity($pdo, 'place', '7312 Windsor St, Hudson, FL 34667', 'Packing to move by end of August 2026 (journal 2026-08-22).');
+
+    $link = $pdo->prepare('INSERT IGNORE INTO journal_entities (journal_id, entity_id, role) VALUES (?, ?, ?)');
+    $link->execute([$jid, $mike, 'author']);
+    $link->execute([$jid, $olivia, 'mentions']);
+    $link->execute([$jid, $waverly, 'workplace']);
+    $link->execute([$jid, $dogs, 'mentions']);
+    $link->execute([$jid, $locker, 'plan']);
+    $link->execute([$jid, $move, 'home']);
+
+    $pdo->prepare(
+        'INSERT INTO measurements (taken_on, taken_at, kind, value_num, unit, conditions, journal_id, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    )->execute([
+        '2026-08-22', null, 'weight', 196.9, 'lb',
+        'naked, fasted (before food or drink), morning',
+        $jid, 'Self-reported in first dictated journal',
+    ]);
+
+    if (table_exists($pdo, 'deadlines')) {
+        $dl = $pdo->prepare(
+            'INSERT INTO deadlines (document_id, case_id, entity_id, due_on, due_at, kind, title, status, source_key)
+             VALUES (NULL, NULL, ?, ?, NULL, ?, ?, \'open\', ?)'
+        );
+        $have = $pdo->prepare('SELECT id FROM deadlines WHERE source_key = ? LIMIT 1');
+        $rows = [
+            ['journal:pack-30-day', $mike, '2026-08-23', 'other', 'Pack anything not needed in 30 days (weekend)'],
+            ['journal:storage-locker', $locker, '2026-08-24', 'other', 'Set up new storage locker'],
+            ['journal:move-eom', $move, '2026-08-31', 'other', 'Move lighter by end of August'],
+        ];
+        foreach ($rows as $r) {
+            $have->execute([$r[0]]);
+            if (!$have->fetch()) {
+                $dl->execute([$r[1], $r[2], $r[3], $r[4], $r[0]]);
+            }
+        }
     }
 }
 

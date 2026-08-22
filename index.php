@@ -51,11 +51,21 @@ if ($view === 'today') {
     )->fetchAll();
     render_header('Today', 'today');
     echo '<h1>Today</h1>';
-    echo '<p class="lede">Daily pass: new files, facts to tap, dates coming up.</p>';
+    echo '<p class="lede">Daily pass: journal, files, facts to tap, dates coming up.</p>';
     echo '<p class="today-stats">';
     echo '<a href="index.php?view=inbox">' . $inboxN . ' in inbox</a> · ';
-    echo '<a href="facts.php">' . $factN . ' untrusted</a>';
+    echo '<a href="facts.php">' . $factN . ' untrusted</a> · ';
+    echo '<a href="journal.php">Journal</a>';
     echo '</p>';
+    if (table_exists($pdo, 'journals')) {
+        $latestJ = $pdo->query('SELECT id, entry_date, title, LEFT(body, 220) AS preview FROM journals ORDER BY entry_date DESC, id DESC LIMIT 1')->fetch();
+        if ($latestJ) {
+            echo '<h2>Latest journal</h2><ul class="docs"><li>';
+            echo '<a href="journal.php?id=' . (int) $latestJ['id'] . '"><strong>' . h((string) ($latestJ['title'] ?: 'Journal')) . '</strong>';
+            echo '<span class="meta">' . h((string) $latestJ['entry_date']) . '</span>';
+            echo '<span class="sum">' . h((string) $latestJ['preview']) . '</span></a></li></ul>';
+        }
+    }
     render_deadline_strip($pdo);
     if ($inboxRows) {
         echo '<h2>Inbox</h2><ul class="docs">';

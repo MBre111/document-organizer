@@ -70,6 +70,50 @@ render_header($ent['name'] ?: 'Entity', 'library');
     </dl>
 <?php endif; ?>
 
+<?php
+$journals = [];
+if (table_exists($pdo, 'journal_entities')) {
+    $js = $pdo->prepare(
+        'SELECT j.id, j.entry_date, j.title, LEFT(j.body, 160) AS preview, je.role
+         FROM journal_entities je
+         JOIN journals j ON j.id = je.journal_id
+         WHERE je.entity_id = ?
+         ORDER BY j.entry_date DESC, j.id DESC'
+    );
+    $js->execute([$id]);
+    $journals = $js->fetchAll();
+}
+$meas = [];
+if (table_exists($pdo, 'measurements') && ($ent['kind'] ?? '') === 'person' && $ent['name'] === 'Michael David Bredin') {
+    $meas = $pdo->query(
+        "SELECT taken_on, value_num, unit, conditions FROM measurements WHERE kind = 'weight' ORDER BY taken_on DESC"
+    )->fetchAll();
+}
+?>
+<?php if ($meas): ?>
+    <h2>Weight</h2>
+    <ul>
+        <?php foreach ($meas as $m): ?>
+            <li><?= h((string) $m['taken_on']) ?> · <strong><?= h((string) $m['value_num']) ?> <?= h((string) $m['unit']) ?></strong>
+                <?php if ($m['conditions']): ?><span class="muted"> · <?= h((string) $m['conditions']) ?></span><?php endif; ?></li>
+        <?php endforeach; ?>
+    </ul>
+<?php endif; ?>
+<?php if ($journals): ?>
+    <h2>Journal</h2>
+    <ul class="docs">
+        <?php foreach ($journals as $j): ?>
+            <li>
+                <a href="journal.php?id=<?= (int) $j['id'] ?>">
+                    <strong><?= h((string) ($j['title'] ?: 'Journal')) ?></strong>
+                    <span class="meta"><?= h((string) $j['entry_date']) ?><?= $j['role'] ? ' · ' . h((string) $j['role']) : '' ?></span>
+                    <span class="sum"><?= h((string) $j['preview']) ?></span>
+                </a>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+<?php endif; ?>
+
 <h2>Documents</h2>
 <?php if (!$docs): ?>
     <p class="muted">Nothing linked yet.</p>

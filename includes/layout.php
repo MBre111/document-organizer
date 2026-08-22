@@ -29,6 +29,7 @@ function render_header(string $title, string $nav = 'today'): void
         <a class="<?= $nav === 'today' ? 'on' : '' ?>" href="index.php">Today</a>
         <a class="<?= $nav === 'inbox' ? 'on' : '' ?>" href="index.php?view=inbox">Inbox<?php if ($inboxN): ?> <span class="nav-count"><?= $inboxN ?></span><?php endif; ?></a>
         <a class="<?= $nav === 'library' ? 'on' : '' ?>" href="index.php?view=library">Library</a>
+        <a class="<?= $nav === 'journal' ? 'on' : '' ?>" href="journal.php">Journal</a>
         <a class="<?= $nav === 'facts' ? 'on' : '' ?>" href="facts.php">Untrusted<?php if ($factN): ?> <span class="nav-count"><?= $factN ?></span><?php endif; ?></a>
         <a class="<?= $nav === 'upload' ? 'on' : '' ?>" href="upload.php">Upload</a>
     </nav>
