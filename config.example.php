@@ -10,4 +10,6 @@ return [
     'pdftotext' => '',
     'pdftoppm' => '',
     'drive_root' => 'G:\\My Drive',
+    'fintable_token' => '',
+    'fintable_base' => 'https://fintable.io/api/v2',
 ];

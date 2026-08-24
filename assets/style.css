@@ -341,3 +341,43 @@ section.untrusted .untrusted {
   font: inherit;
 }
 .inline-form { display: inline; margin-left: 0.4rem; }
+
+.morning-log {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+}
+.morning-log h2 { margin-top: 0; }
+.log-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+.check-list { list-style: none; margin: 0.25rem 0 0; padding: 0; }
+.check-list li { margin: 0.2rem 0; }
+.check-list .choice {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  min-height: 40px;
+  font-weight: 550;
+  font-size: 0.9rem;
+}
+.check-list.compact .choice { min-height: 36px; font-weight: 500; }
+.check-list li.done .choice { color: var(--muted); text-decoration: line-through; }
+.money-accts, .tx-list { list-style: none; margin: 0; padding: 0; }
+.money-accts li, .tx-list li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.money-accts .bal, .tx-list .amt { font-weight: 700; }
+.tx-list .amt.out { color: var(--err); }
+.tx-list .amt.in { color: var(--ok); }
+nav { flex-wrap: wrap; }

@@ -12,10 +12,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $title = trim((string) ($_POST['title'] ?? ''));
     $date = trim((string) ($_POST['entry_date'] ?? date('Y-m-d')));
     if ($body !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-        $pdo->prepare(
-            'INSERT INTO journals (entry_date, entry_at, title, body, source) VALUES (?, NOW(), ?, ?, ?)'
-        )->execute([$date, $title !== '' ? $title : null, $body, 'dictation']);
-        header('Location: journal.php?id=' . (int) $pdo->lastInsertId(), true, 303);
+        $jid = save_journal_entry($pdo, $date, $body, $title, 'typed');
+        header('Location: journal.php?id=' . $jid, true, 303);
         exit;
     }
 }
@@ -74,6 +72,34 @@ if ($id > 0) {
                 echo ' · ' . h($e['role']);
             }
             echo ')</span></li>';
+        }
+        echo '</ul>';
+    }
+    if (table_exists($pdo, 'untrusted_facts') && column_exists($pdo, 'untrusted_facts', 'journal_id')) {
+        require_once __DIR__ . '/includes/facts_ui.php';
+        $jf = $pdo->prepare(
+            "SELECT u.*, j.title AS journal_title FROM untrusted_facts u
+             LEFT JOIN journals j ON j.id = u.journal_id
+             WHERE u.journal_id = ? AND u.status = 'open' ORDER BY u.id"
+        );
+        $jf->execute([$id]);
+        $jf = $jf->fetchAll();
+        if ($jf) {
+            echo '<h2>Tasks from this entry</h2><ul class="facts">';
+            foreach ($jf as $fact) {
+                render_fact_card($fact, 'journal.php?id=' . $id);
+            }
+            echo '</ul>';
+        }
+    }
+    $dls = $pdo->prepare("SELECT * FROM deadlines WHERE journal_id = ? ORDER BY due_on");
+    $dls->execute([$id]);
+    $dls = $dls->fetchAll();
+    if ($dls) {
+        echo '<h2>Tasks added</h2><ul>';
+        foreach ($dls as $dl) {
+            echo '<li><a href="deadline.php?id=' . (int) $dl['id'] . '">' . h((string) $dl['title']) . '</a>';
+            echo ' <span class="muted">' . h((string) $dl['due_on']) . ' · ' . h((string) $dl['status']) . '</span></li>';
         }
         echo '</ul>';
     }

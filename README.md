@@ -45,7 +45,10 @@ This repo is **code only**. Do not commit real documents, OCR dumps of personal 
 
 | Path | What |
 |---|---|
-| `index.php` | Today / inbox / library search |
+| `index.php` | Today (morning log, coming up, facts) / inbox / library |
+| `journal.php` | Daily journal; saving proposes tasks to tap |
+| `deadline.php` | One task + checklist |
+| `money.php` | Fintable balances/transactions + monthly bills |
 | `upload.php` | Phone-friendly multi-page upload |
 | `document.php` | Viewer, facts, related docs, edit |
 | `facts.php` | Untrusted tap-to-confirm |

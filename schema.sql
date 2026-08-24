@@ -166,3 +166,71 @@ CREATE TABLE IF NOT EXISTS measurements (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ms_kind_date (kind, taken_on)
 );
+
+CREATE TABLE IF NOT EXISTS deadline_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  deadline_id INT UNSIGNED NOT NULL,
+  title VARCHAR(180) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'open',
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_di_dl (deadline_id, status)
+);
+
+CREATE TABLE IF NOT EXISTS recurring_bills (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  document_id INT UNSIGNED NULL,
+  entity_id INT UNSIGNED NULL,
+  payee VARCHAR(180) NOT NULL,
+  amount DECIMAL(10,2) NULL,
+  currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+  cadence VARCHAR(16) NOT NULL DEFAULT 'monthly',
+  day_of_month TINYINT UNSIGNED NULL,
+  next_due DATE NOT NULL,
+  last_spawned DATE NULL,
+  source VARCHAR(32) NOT NULL DEFAULT 'manual',
+  notes VARCHAR(255) NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_rb_next (status, next_due)
+);
+
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  fintable_id VARCHAR(64) NOT NULL,
+  connection_id VARCHAR(80) NULL,
+  institution VARCHAR(180) NULL,
+  name VARCHAR(180) NOT NULL,
+  display_name VARCHAR(180) NULL,
+  type VARCHAR(80) NULL,
+  currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+  balance DECIMAL(12,2) NULL,
+  balance_available DECIMAL(12,2) NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  extra_json TEXT NULL,
+  synced_at DATETIME NULL,
+  UNIQUE KEY uq_ba_ft (fintable_id)
+);
+
+CREATE TABLE IF NOT EXISTS bank_transactions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  fintable_id VARCHAR(64) NOT NULL,
+  account_id INT UNSIGNED NOT NULL,
+  posted_on DATE NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  currency VARCHAR(8) NOT NULL DEFAULT 'USD',
+  description VARCHAR(255) NULL,
+  merchant VARCHAR(180) NULL,
+  category VARCHAR(80) NULL,
+  extra_json TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_bt_ft (fintable_id),
+  INDEX idx_tx_date (posted_on),
+  INDEX idx_tx_acct (account_id, posted_on)
+);
+
+CREATE TABLE IF NOT EXISTS app_state (
+  k VARCHAR(64) NOT NULL,
+  v TEXT NULL,
+  PRIMARY KEY (k)
+);

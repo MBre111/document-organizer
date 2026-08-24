@@ -24,6 +24,7 @@ function fact_is_non_answer(string $value): bool
         "don't know", 'do not know', 'do not treat', 'not needed',
         'junk', 'ignore this', 'ignore /', 'no docket', 'not sure',
         'leave it blank', "i'll add", 'draft only / not served',
+        'skip', 'skip this', 'skip this task',
     ];
     $lower = strtolower($v);
     foreach ($needles as $n) {
@@ -119,11 +120,17 @@ function fact_writer(string $key): array
 
 function write_confirmed_fact(PDO $pdo, array $fact, string $chosen): void
 {
+    $key = (string) ($fact['fact_key'] ?? '');
+    if ($key === 'proposed_task') {
+        if (!fact_is_non_answer($chosen)) {
+            confirm_proposed_task($pdo, $fact, $chosen);
+        }
+        return;
+    }
     $docId = (int) ($fact['document_id'] ?? 0);
     if ($docId < 1 || fact_is_non_answer($chosen)) {
         return;
     }
-    $key = (string) ($fact['fact_key'] ?? '');
     if ($key === '') {
         return;
     }
@@ -336,15 +343,20 @@ function render_deadline_strip(PDO $pdo): void
     if (!$rows) {
         return;
     }
+    $items = deadline_items_map($pdo, array_map(static fn ($r) => (int) $r['id'], $rows));
     echo '<section class="coming-up">';
     echo '<h2>Coming up</h2>';
     echo '<ul>';
     $today = date('Y-m-d');
     foreach ($rows as $row) {
         $overdue = ($row['due_on'] ?? '') < $today;
-        $href = !empty($row['case_id'])
-            ? 'case.php?id=' . (int) $row['case_id']
-            : 'document.php?id=' . (int) $row['document_id'];
+        if (!empty($row['case_id'])) {
+            $href = 'case.php?id=' . (int) $row['case_id'];
+        } elseif (!empty($row['document_id'])) {
+            $href = 'document.php?id=' . (int) $row['document_id'];
+        } else {
+            $href = 'deadline.php?id=' . (int) $row['id'];
+        }
         $when = h((string) $row['due_on']);
         if (!empty($row['due_at'])) {
             $when .= ' ' . h(substr((string) $row['due_at'], 11, 5));
@@ -360,6 +372,18 @@ function render_deadline_strip(PDO $pdo): void
         echo '<button class="btn small" name="action" value="done" type="submit">Done</button>';
         echo '<button class="btn small ghost" name="action" value="cancelled" type="submit">Not this</button>';
         echo '</form>';
+        $openItems = array_values(array_filter($items[(int) $row['id']] ?? [], static fn ($it) => ($it['status'] ?? '') === 'open'));
+        if ($openItems) {
+            echo '<ul class="check-list compact">';
+            foreach (array_slice($openItems, 0, 5) as $item) {
+                echo '<li><form method="post" action="deadline.php">';
+                echo '<input type="hidden" name="item_id" value="' . (int) $item['id'] . '">';
+                echo '<input type="hidden" name="return" value="' . h($_SERVER['REQUEST_URI'] ?? 'index.php') . '">';
+                echo '<button class="choice" name="action" value="item_done" type="submit">○ ' . h((string) $item['title']) . '</button>';
+                echo '</form></li>';
+            }
+            echo '</ul>';
+        }
         echo '</li>';
     }
     echo '</ul></section>';
@@ -370,17 +394,35 @@ function handle_deadline_post(PDO $pdo): void
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         return;
     }
-    $id = (int) ($_POST['id'] ?? 0);
     $action = (string) ($_POST['action'] ?? '');
+    $r = safe_return_url((string) ($_POST['return'] ?? 'index.php'));
+    if ($action === 'item_done' || $action === 'item_open') {
+        $itemId = (int) ($_POST['item_id'] ?? 0);
+        if ($itemId > 0 && table_exists($pdo, 'deadline_items')) {
+            $st = $action === 'item_done' ? 'done' : 'open';
+            $pdo->prepare('UPDATE deadline_items SET status = ? WHERE id = ?')->execute([$st, $itemId]);
+        }
+        header('Location: ' . $r, true, 303);
+        exit;
+    }
+    if ($action === 'add_item') {
+        $id = (int) ($_POST['id'] ?? 0);
+        $title = mb_substr(trim((string) ($_POST['item_title'] ?? '')), 0, 180);
+        if ($id > 0 && $title !== '' && table_exists($pdo, 'deadline_items')) {
+            $sort = $pdo->prepare('SELECT COALESCE(MAX(sort_order),0)+1 FROM deadline_items WHERE deadline_id = ?');
+            $sort->execute([$id]);
+            $pdo->prepare('INSERT INTO deadline_items (deadline_id, title, status, sort_order) VALUES (?, ?, ?, ?)')
+                ->execute([$id, $title, 'open', (int) $sort->fetchColumn()]);
+        }
+        header('Location: ' . $r, true, 303);
+        exit;
+    }
+    $id = (int) ($_POST['id'] ?? 0);
     if ($id < 1 || !in_array($action, ['done', 'cancelled'], true)) {
         return;
     }
     $pdo->prepare("UPDATE deadlines SET status = ? WHERE id = ? AND status = 'open'")
         ->execute([$action, $id]);
-    $r = (string) ($_POST['return'] ?? 'index.php');
-    if ($r === '' || !str_starts_with($r, '/') && !preg_match('/^(index|document|case|entity|facts)\.php/', $r)) {
-        $r = 'index.php';
-    }
     header('Location: ' . $r, true, 303);
     exit;
 }

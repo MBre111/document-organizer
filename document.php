@@ -72,6 +72,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ->execute([$id]);
         materialize_document_google($pdo, $id);
         promote_document_files($pdo, $id);
+    } elseif ($action === 'recurring') {
+        save_recurring_bill($pdo, [
+            'document_id' => $id,
+            'payee' => (string) ($_POST['payee'] ?? ''),
+            'amount' => (string) ($_POST['amount'] ?? ''),
+            'day_of_month' => (string) ($_POST['day_of_month'] ?? ''),
+            'next_due' => (string) ($_POST['next_due'] ?? ''),
+            'source' => 'catalog',
+        ]);
     }
     header('Location: document.php?id=' . $id, true, 303);
     exit;
@@ -257,6 +266,8 @@ render_header($doc['title'] ?: 'Document', $doc['review_status'] === 'inbox' ? '
         <button class="btn small" type="submit">Add link</button>
     </form>
 <?php endif; ?>
+
+<?php render_recurring_form($pdo, $doc, is_array($extra) ? $extra : []); ?>
 
 <h2>Edit record</h2>
 <form method="post" class="edit-doc">

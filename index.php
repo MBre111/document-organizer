@@ -12,6 +12,9 @@ if (!in_array($view, ['today', 'inbox', 'library'], true)) {
 
 try {
     $pdo = db();
+    require_once __DIR__ . '/includes/facts_ui.php';
+    handle_today_post($pdo);
+    handle_fact_post($pdo);
 } catch (PDOException $e) {
     render_header('Setup', $view);
     echo '<h1>Database not ready</h1>';
@@ -43,20 +46,24 @@ if ($view === 'today') {
         "SELECT id, title, created_at FROM documents WHERE review_status = 'inbox' ORDER BY created_at DESC LIMIT 5"
     )->fetchAll();
     $factRows = $pdo->query(
-        "SELECT u.*, d.title AS doc_title FROM untrusted_facts u
+        "SELECT u.*, d.title AS doc_title, j.title AS journal_title, j.entry_date
+         FROM untrusted_facts u
          LEFT JOIN documents d ON d.id = u.document_id
+         LEFT JOIN journals j ON j.id = u.journal_id
          WHERE u.status = 'open'
-         ORDER BY FIELD(u.importance,'important','normal'), u.id
-         LIMIT 5"
+         ORDER BY (u.journal_id IS NOT NULL) DESC, FIELD(u.importance,'important','normal'), u.id
+         LIMIT 8"
     )->fetchAll();
     render_header('Today', 'today');
     echo '<h1>Today</h1>';
-    echo '<p class="lede">Daily pass: journal, files, facts to tap, dates coming up.</p>';
+    echo '<p class="lede">Daily pass: morning log, files, facts to tap, dates coming up.</p>';
     echo '<p class="today-stats">';
     echo '<a href="index.php?view=inbox">' . $inboxN . ' in inbox</a> · ';
     echo '<a href="facts.php">' . $factN . ' untrusted</a> · ';
-    echo '<a href="journal.php">Journal</a>';
+    echo '<a href="journal.php">Journal</a> · ';
+    echo '<a href="money.php">Money</a>';
     echo '</p>';
+    render_morning_log($pdo);
     if (table_exists($pdo, 'journals')) {
         $latestJ = $pdo->query('SELECT id, entry_date, title, LEFT(body, 220) AS preview FROM journals ORDER BY entry_date DESC, id DESC LIMIT 1')->fetch();
         if ($latestJ) {

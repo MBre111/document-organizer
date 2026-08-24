@@ -18,3 +18,4 @@ desktop.ini
 .vscode/
 *.zip
 ocr-batch.php.bak
+/storage/fintable.token

@@ -8,10 +8,10 @@ function fact_return_url(): string
     if ($r === 'facts.php') {
         return 'facts.php';
     }
-    if (preg_match('/^(document|case|entity)\.php\?id=\d+$/', $r)) {
+    if (preg_match('/^(document|case|entity|journal|deadline)\.php\?id=\d+$/', $r)) {
         return $r;
     }
-    if ($r === 'index.php' || $r === 'index.php?view=library') {
+    if (preg_match('/^(index|facts|money|journal)\.php/', $r)) {
         return $r;
     }
     return 'facts.php';
@@ -81,23 +81,24 @@ function apply_fact_choice(PDO $pdo, int $id, string $action, string $choice, st
     if ($value === '') {
         return false;
     }
+    $row = $pdo->prepare('SELECT * FROM untrusted_facts WHERE id = ? AND status = ?');
+    $row->execute([$id, 'open']);
+    $fact = $row->fetch();
+    if (!$fact) {
+        return false;
+    }
     $stmt = $pdo->prepare(
         'UPDATE untrusted_facts
-         SET status = ?, fact_value = ?, resolved_at = NOW(), resolved_note = ?
+         SET status = ?, resolved_at = NOW(), resolved_note = ?
          WHERE id = ? AND status = ?'
     );
     $note = $action === 'custom' ? 'Typed' : 'Picked';
-    $stmt->execute(['confirmed', $value, $note, $id, 'open']);
+    $stmt->execute(['confirmed', $note . ': ' . mb_substr($value, 0, 80), $id, 'open']);
     if ($stmt->rowCount() < 1) {
         return false;
     }
-    $row = $pdo->prepare('SELECT * FROM untrusted_facts WHERE id = ?');
-    $row->execute([$id]);
-    $fact = $row->fetch();
-    if ($fact) {
-        write_confirmed_fact($pdo, $fact, $value);
-        maybe_confirm_document($pdo, (int) ($fact['document_id'] ?? 0));
-    }
+    write_confirmed_fact($pdo, $fact, $value);
+    maybe_confirm_document($pdo, (int) ($fact['document_id'] ?? 0));
     return true;
 }
 
@@ -113,9 +114,10 @@ function handle_fact_post(PDO $pdo): void
     if ($choice !== '' && $action === '') {
         $action = 'picked';
     }
-    if ($id > 0 && $action !== '') {
-        apply_fact_choice($pdo, $id, $action, $choice, $custom);
+    if ($id < 1 || $action === '') {
+        return;
     }
+    apply_fact_choice($pdo, $id, $action, $choice, $custom);
     header('Location: ' . fact_return_url(), true, 303);
     exit;
 }
@@ -159,6 +161,8 @@ function render_fact_card(array $fact, string $return = 'facts.php'): void
         <?php endif; ?>
         <?php if (!empty($fact['doc_title']) && !empty($fact['document_id'])): ?>
             <p class="muted"><a href="document.php?id=<?= (int) $fact['document_id'] ?>"><?= h((string) $fact['doc_title']) ?></a></p>
+        <?php elseif (!empty($fact['journal_id'])): ?>
+            <p class="muted"><a href="journal.php?id=<?= (int) $fact['journal_id'] ?>"><?= h((string) ($fact['journal_title'] ?? 'Journal')) ?></a></p>
         <?php endif; ?>
         <?php render_fact_form($fact, $return); ?>
     </li>

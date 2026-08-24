@@ -10,9 +10,10 @@ $pdo = db();
 handle_fact_post($pdo);
 
 $open = $pdo->query(
-    "SELECT u.*, d.title AS doc_title
+    "SELECT u.*, d.title AS doc_title, j.title AS journal_title, j.entry_date
      FROM untrusted_facts u
      LEFT JOIN documents d ON d.id = u.document_id
+     LEFT JOIN journals j ON j.id = u.journal_id
      WHERE u.status = 'open'
      ORDER BY FIELD(u.importance, 'important', 'normal') , u.id"
 )->fetchAll();

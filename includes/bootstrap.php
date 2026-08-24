@@ -201,6 +201,7 @@ function migrate_catalog_schema(PDO $pdo): void
     prune_deadline_noise($pdo);
     retag_entry_notices($pdo);
     seed_journal_2026_08_22($pdo);
+    migrate_life_schema($pdo);
 }
 
 function retag_entry_notices(PDO $pdo): void
@@ -524,4 +525,6 @@ function request_source(): string
 
 require_once __DIR__ . '/catalog.php';
 require_once __DIR__ . '/cabinet.php';
+require_once __DIR__ . '/life.php';
+require_once __DIR__ . '/fintable.php';
 
