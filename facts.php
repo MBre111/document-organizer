@@ -18,10 +18,10 @@ $open = $pdo->query(
      ORDER BY FIELD(u.importance, 'important', 'normal') , u.id"
 )->fetchAll();
 
-render_header('Untrusted facts', 'facts');
+render_header('Confirm', 'facts');
 ?>
-<h1>Needs confirming</h1>
-<p class="lede">Tap the bubble that is true. Type if none fit. “None of these” marks it false. Important items first.</p>
+<h1>Confirm</h1>
+<p class="lede">Tap the true answer. Type if none fit.</p>
 
 <?php if (!$open): ?>
     <p class="muted">Nothing waiting.</p>

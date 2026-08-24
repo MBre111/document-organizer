@@ -36,14 +36,8 @@ $status = trim((string) ($_GET['status'] ?? ''));
 if ($view === 'today') {
     $inboxN = (int) $pdo->query("SELECT COUNT(*) FROM documents WHERE review_status = 'inbox'")->fetchColumn();
     $factN = (int) $pdo->query("SELECT COUNT(*) FROM untrusted_facts WHERE status = 'open'")->fetchColumn();
-    $newRows = $pdo->query(
-        "SELECT id, title, created_at, review_status FROM documents
-         WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)
-           AND review_status <> 'out_of_scope'
-         ORDER BY created_at DESC LIMIT 8"
-    )->fetchAll();
     $inboxRows = $pdo->query(
-        "SELECT id, title, created_at FROM documents WHERE review_status = 'inbox' ORDER BY created_at DESC LIMIT 5"
+        "SELECT id, title, created_at FROM documents WHERE review_status = 'inbox' ORDER BY created_at DESC LIMIT 3"
     )->fetchAll();
     $factRows = $pdo->query(
         "SELECT u.*, d.title AS doc_title, j.title AS journal_title, j.entry_date
@@ -52,60 +46,55 @@ if ($view === 'today') {
          LEFT JOIN journals j ON j.id = u.journal_id
          WHERE u.status = 'open'
          ORDER BY (u.fact_key IN ('proposed_task','bill_match') OR u.journal_id IS NOT NULL) DESC, FIELD(u.importance,'important','normal'), u.id
-         LIMIT 8"
+         LIMIT 2"
     )->fetchAll();
+    $moneyLeft = null;
+    if (table_exists($pdo, 'budget_lines')) {
+        $ym = date('Y-m');
+        ensure_budget_month($pdo, $ym);
+        $tot = budget_totals(budget_categories($pdo), budget_rollups($pdo, $ym));
+        $moneyLeft = $tot['planned'] > 0 ? $tot['left'] : null;
+    }
     render_header('Today', 'today');
-    echo '<h1>Today</h1>';
-    echo '<p class="lede">Daily pass: morning log, files, facts to tap, dates coming up.</p>';
-    echo '<p class="today-stats">';
-    echo '<a href="index.php?view=inbox">' . $inboxN . ' in inbox</a> · ';
-    echo '<a href="facts.php">' . $factN . ' untrusted</a> · ';
-    echo '<a href="journal.php">Journal</a> · ';
-    echo '<a href="money.php">Money</a>';
-    echo '</p>';
+    echo '<h1>' . h(date('l, M j')) . '</h1>';
+    echo '<div class="chips">';
+    echo '<a class="chip" href="index.php?view=inbox"><span>Inbox</span><b>' . $inboxN . '</b></a>';
+    echo '<a class="chip' . ($factN ? ' warn' : '') . '" href="facts.php"><span>Confirm</span><b>' . $factN . '</b></a>';
+    echo '<a class="chip" href="money.php"><span>Budget left</span><b>';
+    echo $moneyLeft === null ? 'Set' : h(money_plain($moneyLeft));
+    echo '</b></a></div>';
+    render_deadline_strip($pdo);
+    if ($factRows) {
+        require_once __DIR__ . '/includes/facts_ui.php';
+        echo '<h2>Tap these</h2>';
+        echo '<ul class="facts">';
+        foreach ($factRows as $fact) {
+            render_fact_card($fact, 'index.php');
+        }
+        echo '</ul>';
+        if ($factN > 2) {
+            echo '<p class="muted"><a href="facts.php">All ' . $factN . ' to confirm</a></p>';
+        }
+    }
     render_morning_log($pdo);
     render_money_strip($pdo);
     if (table_exists($pdo, 'journals')) {
-        $latestJ = $pdo->query('SELECT id, entry_date, title, LEFT(body, 220) AS preview FROM journals ORDER BY entry_date DESC, id DESC LIMIT 1')->fetch();
+        $latestJ = $pdo->query('SELECT id, entry_date, title, LEFT(body, 180) AS preview FROM journals ORDER BY entry_date DESC, id DESC LIMIT 1')->fetch();
         if ($latestJ) {
-            echo '<h2>Latest journal</h2><ul class="docs"><li>';
+            echo '<h2>Journal</h2><ul class="docs"><li>';
             echo '<a href="journal.php?id=' . (int) $latestJ['id'] . '"><strong>' . h((string) ($latestJ['title'] ?: 'Journal')) . '</strong>';
             echo '<span class="meta">' . h((string) $latestJ['entry_date']) . '</span>';
             echo '<span class="sum">' . h((string) $latestJ['preview']) . '</span></a></li></ul>';
         }
     }
-    render_deadline_strip($pdo);
     if ($inboxRows) {
-        echo '<h2>Inbox</h2><ul class="docs">';
+        echo '<h2>Waiting in inbox</h2><ul class="docs">';
         foreach ($inboxRows as $row) {
             echo '<li><a href="document.php?id=' . (int) $row['id'] . '"><strong>' . h($row['title'] ?: 'Untitled') . '</strong>';
             echo '<span class="meta">' . h(substr((string) $row['created_at'], 0, 16)) . '</span></a></li>';
         }
         echo '</ul>';
-        if ($inboxN > 5) {
-            echo '<p class="muted"><a href="index.php?view=inbox">All inbox</a></p>';
-        }
     }
-    if ($factRows) {
-        require_once __DIR__ . '/includes/facts_ui.php';
-        echo '<h2>Tap these</h2><ul class="facts">';
-        foreach ($factRows as $fact) {
-            render_fact_card($fact, 'index.php');
-        }
-        echo '</ul>';
-        if ($factN > 5) {
-            echo '<p class="muted"><a href="facts.php">All untrusted</a></p>';
-        }
-    }
-    if ($newRows) {
-        echo '<h2>New since yesterday</h2><ul class="docs">';
-        foreach ($newRows as $row) {
-            echo '<li><a href="document.php?id=' . (int) $row['id'] . '"><strong>' . h($row['title'] ?: 'Untitled') . '</strong>';
-            echo '<span class="meta">' . h($row['review_status']) . ' · ' . h(substr((string) $row['created_at'], 0, 16)) . '</span></a></li>';
-        }
-        echo '</ul>';
-    }
-    echo '<p><a class="btn" href="upload.php">Upload</a></p>';
     render_footer();
     exit;
 }
@@ -187,7 +176,7 @@ render_header($view === 'inbox' ? 'Inbox' : 'Library', $view);
 <h1><?= $view === 'inbox' ? 'Inbox' : 'Library' ?></h1>
 <?php render_deadline_strip($pdo); ?>
 <?php if ($view === 'inbox'): ?>
-    <p class="lede"><?= count($rows) ?> document<?= count($rows) === 1 ? '' : 's' ?> waiting. Upload pages from your phone, merge what belongs together, then tell me to catalog the inbox.</p>
+    <p class="lede"><?= count($rows) ?> waiting. <a href="upload.php">Add a scan</a>, then ask me to catalog.</p>
     <p><a class="btn" href="upload.php">Upload</a></p>
 <?php else: ?>
     <form class="search search-full" method="get">

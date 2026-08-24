@@ -139,7 +139,7 @@ function render_fact_form(array $fact, string $return = 'facts.php'): void
         <?php endif; ?>
         <div class="fact-custom">
             <label class="visually-hidden" for="custom-<?= $qid ?>">Or type the correct one</label>
-            <input id="custom-<?= $qid ?>" type="text" name="custom" placeholder="Or type the correct one" autocomplete="off">
+            <input id="custom-<?= $qid ?>" type="text" name="custom" placeholder="Or type it" autocomplete="off">
             <button class="btn small" type="submit" name="action" value="custom">Save</button>
             <button class="btn small ghost" type="submit" name="action" value="rejected">None of these</button>
         </div>
@@ -153,7 +153,7 @@ function render_fact_card(array $fact, string $return = 'facts.php'): void
     ?>
     <li class="<?= $important ? 'untrusted important' : 'untrusted' ?>">
         <?php if ($important): ?>
-            <p class="meta">Important</p>
+            <span class="pill important">Important</span>
         <?php endif; ?>
         <p class="fact-q"><?= h(fact_question($fact)) ?></p>
         <?php if (!empty($fact['reason'])): ?>

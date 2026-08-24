@@ -111,7 +111,7 @@ $list = $pdo->query('SELECT id, entry_date, title, LEFT(body, 180) AS preview FR
 render_header('Journal', 'journal');
 ?>
 <h1>Journal</h1>
-<p class="lede">Daily dictations. Grok will pull people, places, numbers, and plans into wiki pages that link back here.</p>
+<p class="lede">Write or paste today. Dates become tasks to tap.</p>
 <form method="post" class="edit-doc">
     <label>Date <input type="date" name="entry_date" value="<?= h(date('Y-m-d')) ?>"></label>
     <label>Title (optional) <input name="title" placeholder="Short label"></label>

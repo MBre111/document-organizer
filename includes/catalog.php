@@ -349,56 +349,142 @@ function upcoming_deadlines(PDO $pdo, int $limit = 8): array
     return $stmt->fetchAll();
 }
 
+
+function friendly_when(string $dueOn, ?string $dueAt = null): string
+{
+    $today = date('Y-m-d');
+    $t = strtotime($dueOn . ' 12:00:00') ?: time();
+    $diff = (int) round(($t - strtotime($today . ' 12:00:00')) / 86400);
+    if ($diff === 0) {
+        $label = 'Today';
+    } elseif ($diff === 1) {
+        $label = 'Tomorrow';
+    } elseif ($diff === -1) {
+        $label = 'Yesterday';
+    } elseif ($diff < 0) {
+        $label = abs($diff) . 'd late';
+    } elseif ($diff < 7) {
+        $label = date('D', $t);
+    } else {
+        $label = date('M j', $t);
+    }
+    if ($dueAt) {
+        $hm = substr($dueAt, 11, 5);
+        if ($hm && $hm !== '00:00') {
+            $label .= ' ' . $hm;
+        }
+    }
+    return $label;
+}
+
+function kind_label(string $kind): string
+{
+    return match ($kind) {
+        'bill_due', 'pay_by' => 'Bill',
+        'lease_end' => 'Lease',
+        'lease_start' => 'Start',
+        'hearing' => 'Hearing',
+        'vacate' => 'Vacate',
+        'entry' => 'Entry',
+        'other' => 'Task',
+        default => ucfirst(str_replace('_', ' ', $kind)),
+    };
+}
+
+function deadline_href(array $row): string
+{
+    if (!empty($row['case_id'])) {
+        return 'case.php?id=' . (int) $row['case_id'];
+    }
+    if (!empty($row['document_id'])) {
+        return 'document.php?id=' . (int) $row['document_id'];
+    }
+    return 'deadline.php?id=' . (int) $row['id'];
+}
+
+function render_deadline_row(array $row, array $items, string $today): void
+{
+    $overdue = ($row['due_on'] ?? '') < $today;
+    $kind = kind_label((string) ($row['kind'] ?? 'other'));
+    $title = (string) ($row['title'] ?? '');
+    $title = preg_replace('/^(lease_end|lease_start|hearing|vacate|entry|bill_due|pay_by|other):\s*/i', '', $title) ?? $title;
+    $prefix = strtolower($kind) . ': ';
+    if (str_starts_with(strtolower($title), $prefix)) {
+        $title = substr($title, strlen($prefix));
+    }
+    if (mb_strlen($title) > 90) {
+        $title = rtrim(mb_substr($title, 0, 88)) . '...';
+    }
+    echo '<li class="' . ($overdue ? 'overdue' : '') . '">';
+    echo '<a href="' . h(deadline_href($row)) . '">';
+    echo '<span class="when">' . h(friendly_when((string) $row['due_on'], $row['due_at'] ?? null)) . '</span>';
+    echo '<span class="dl-title">' . h($title) . '</span>';
+    echo '<span class="meta">' . h($kind) . '</span>';
+    echo '</a>';
+    echo '<form method="post" action="deadline.php" class="dl-actions">';
+    echo '<input type="hidden" name="id" value="' . (int) $row['id'] . '">';
+    echo '<input type="hidden" name="return" value="' . h($_SERVER['REQUEST_URI'] ?? 'index.php') . '">';
+    echo '<button class="btn small" name="action" value="done" type="submit">Done</button>';
+    echo '<button class="btn small ghost" name="action" value="cancelled" type="submit">Not this</button>';
+    echo '</form>';
+    $openItems = array_values(array_filter($items[(int) $row['id']] ?? [], static fn ($it) => ($it['status'] ?? '') === 'open'));
+    if ($openItems) {
+        echo '<ul class="check-list compact">';
+        foreach (array_slice($openItems, 0, 5) as $item) {
+            echo '<li><form method="post" action="deadline.php">';
+            echo '<input type="hidden" name="item_id" value="' . (int) $item['id'] . '">';
+            echo '<input type="hidden" name="return" value="' . h($_SERVER['REQUEST_URI'] ?? 'index.php') . '">';
+            echo '<button class="choice" name="action" value="item_done" type="submit">○ ' . h((string) $item['title']) . '</button>';
+            echo '</form></li>';
+        }
+        echo '</ul>';
+    }
+    echo '</li>';
+}
+
 function render_deadline_strip(PDO $pdo): void
 {
-    $rows = upcoming_deadlines($pdo, 8);
+    $rows = upcoming_deadlines($pdo, 24);
     if (!$rows) {
         return;
     }
     $items = deadline_items_map($pdo, array_map(static fn ($r) => (int) $r['id'], $rows));
+    $today = date('Y-m-d');
+    $week = date('Y-m-d', strtotime('+7 days'));
+    $soon = [];
+    $late = [];
+    foreach ($rows as $row) {
+        $due = (string) ($row['due_on'] ?? '');
+        if ($due < $today) {
+            $late[] = $row;
+        } elseif ($due <= $week) {
+            $soon[] = $row;
+        }
+    }
+    if (!$soon && !$late) {
+        return;
+    }
     echo '<section class="coming-up">';
     echo '<h2>Coming up</h2>';
-    echo '<ul>';
-    $today = date('Y-m-d');
-    foreach ($rows as $row) {
-        $overdue = ($row['due_on'] ?? '') < $today;
-        if (!empty($row['case_id'])) {
-            $href = 'case.php?id=' . (int) $row['case_id'];
-        } elseif (!empty($row['document_id'])) {
-            $href = 'document.php?id=' . (int) $row['document_id'];
-        } else {
-            $href = 'deadline.php?id=' . (int) $row['id'];
+    if ($soon) {
+        echo '<ul>';
+        foreach (array_slice($soon, 0, 6) as $row) {
+            render_deadline_row($row, $items, $today);
         }
-        $when = h((string) $row['due_on']);
-        if (!empty($row['due_at'])) {
-            $when .= ' ' . h(substr((string) $row['due_at'], 11, 5));
-        }
-        echo '<li class="' . ($overdue ? 'overdue' : '') . '">';
-        echo '<a href="' . h($href) . '">';
-        echo '<span class="when">' . $when . ($overdue ? ' · overdue' : '') . '</span>';
-        echo '<span>' . h((string) $row['kind'] . ' · ' . (string) $row['title']) . '</span>';
-        echo '</a>';
-        echo '<form method="post" action="deadline.php" class="dl-actions">';
-        echo '<input type="hidden" name="id" value="' . (int) $row['id'] . '">';
-        echo '<input type="hidden" name="return" value="' . h($_SERVER['REQUEST_URI'] ?? 'index.php') . '">';
-        echo '<button class="btn small" name="action" value="done" type="submit">Done</button>';
-        echo '<button class="btn small ghost" name="action" value="cancelled" type="submit">Not this</button>';
-        echo '</form>';
-        $openItems = array_values(array_filter($items[(int) $row['id']] ?? [], static fn ($it) => ($it['status'] ?? '') === 'open'));
-        if ($openItems) {
-            echo '<ul class="check-list compact">';
-            foreach (array_slice($openItems, 0, 5) as $item) {
-                echo '<li><form method="post" action="deadline.php">';
-                echo '<input type="hidden" name="item_id" value="' . (int) $item['id'] . '">';
-                echo '<input type="hidden" name="return" value="' . h($_SERVER['REQUEST_URI'] ?? 'index.php') . '">';
-                echo '<button class="choice" name="action" value="item_done" type="submit">○ ' . h((string) $item['title']) . '</button>';
-                echo '</form></li>';
-            }
-            echo '</ul>';
-        }
-        echo '</li>';
+        echo '</ul>';
+    } else {
+        echo '<p class="muted">Nothing due in the next week.</p>';
     }
-    echo '</ul></section>';
+    if ($late) {
+        echo '<details class="fold">';
+        echo '<summary>' . count($late) . ' overdue</summary>';
+        echo '<ul>';
+        foreach (array_slice($late, 0, 8) as $row) {
+            render_deadline_row($row, $items, $today);
+        }
+        echo '</ul></details>';
+    }
+    echo '</section>';
 }
 
 function handle_deadline_post(PDO $pdo): void

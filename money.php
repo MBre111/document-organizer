@@ -81,7 +81,7 @@ $lastSync = app_state_get($pdo, 'fintable_last_sync');
 
 render_header('Money', 'money');
 echo '<h1>Money</h1>';
-echo '<p class="lede">Monthly envelopes, bills, and bank activity via <a href="https://fintable.io" rel="noreferrer">Fintable</a>. Set the plan now; actuals fill in when you connect.</p>';
+echo '<p class="lede">Plan the month. Bank activity fills in after Fintable.</p>';
 render_money_subnav($view, $ym);
 
 if ($flash) {

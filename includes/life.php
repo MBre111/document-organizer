@@ -495,13 +495,13 @@ function render_morning_log(PDO $pdo): void
         )->fetchAll();
     }
     echo '<section class="morning-log">';
-    echo '<h2>Morning log</h2>';
+    echo '<h2>Log</h2>';
     echo '<form method="post" class="edit-doc">';
     echo '<input type="hidden" name="action" value="today_log">';
     echo '<input type="hidden" name="entry_date" value="' . h($today) . '">';
     echo '<div class="log-row">';
     echo '<label>Weight (lb) <input type="number" name="weight" step="0.1" min="80" max="450" inputmode="decimal" value="'
-        . h($w ? (string) $w['value_num'] : '') . '" placeholder="196.9"></label>';
+        . h($w ? (string) $w['value_num'] : '') . '" placeholder="lb"></label>';
     echo '<label class="switch"><input type="checkbox" name="naked" value="1" checked> Naked</label>';
     echo '<label class="switch"><input type="checkbox" name="fasted" value="1" checked> Fasted</label>';
     echo '</div>';

@@ -155,13 +155,13 @@ render_header($doc['title'] ?: 'Document', $doc['review_status'] === 'inbox' ? '
 ?>
 <p class="back"><a href="index.php<?= $doc['review_status'] === 'inbox' ? '' : '?view=library' ?>">← Back</a></p>
 <h1><?= h($doc['title'] ?: 'Untitled') ?></h1>
-<p class="meta">
-    <?= h($doc['review_status']) ?>
-    <?= $doc['doc_type'] ? ' · ' . h($doc['doc_type']) : '' ?>
-    <?= $doc['source_org'] ? ' · ' . h($doc['source_org']) : '' ?>
-    <?= $doc['doc_date'] ? ' · ' . h($doc['doc_date']) : '' ?>
+<p class="page-meta-row">
+    <span class="pill <?= h((string) $doc['review_status']) ?>"><?= h((string) $doc['review_status']) ?></span>
+    <?php if ($doc['doc_type']): ?><span class="pill"><?= h(str_replace('_', ' ', (string) $doc['doc_type'])) ?></span><?php endif; ?>
+    <?php if ($doc['source_org']): ?><span class="meta"><?= h((string) $doc['source_org']) ?></span><?php endif; ?>
+    <?php if ($doc['doc_date']): ?><span class="meta"><?= h((string) $doc['doc_date']) ?></span><?php endif; ?>
     <?php if (!empty($doc['case_id'])): ?>
-        · <a href="case.php?id=<?= (int) $doc['case_id'] ?>">case</a>
+        <a href="case.php?id=<?= (int) $doc['case_id'] ?>">Case</a>
     <?php endif; ?>
 </p>
 
@@ -272,6 +272,7 @@ render_header($doc['title'] ?: 'Document', $doc['review_status'] === 'inbox' ? '
 
 <?php render_recurring_form($pdo, $doc, is_array($extra) ? $extra : []); ?>
 
+<details class="fold panel"><summary>Edit this record</summary>
 <h2>Edit record</h2>
 <form method="post" class="edit-doc">
     <input type="hidden" name="action" value="save">
@@ -314,7 +315,8 @@ render_header($doc['title'] ?: 'Document', $doc['review_status'] === 'inbox' ? '
     <form method="post"><input type="hidden" name="action" value="promote"><button class="btn ghost" type="submit">Confirm &amp; file in cabinet</button></form>
 </div>
 <?php if ($doc['review_status'] === 'inbox'): ?>
-    <p class="lede">This is still in the inbox. Save a type/title here, or tell me to catalog it from the scan.</p>
+    <p class="lede">Still in the inbox. Save a type/title, or ask me to catalog the scan.</p>
 <?php endif; ?>
+</details>
 <?php
 render_footer();
