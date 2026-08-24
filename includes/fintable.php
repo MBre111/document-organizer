@@ -232,6 +232,9 @@ function fintable_sync_all(PDO $pdo): array
         $out['accounts'] = fintable_sync_accounts($pdo);
         $since = app_state_get($pdo, 'fintable_last_sync');
         $out['transactions'] = fintable_sync_transactions($pdo, $since);
+        if (function_exists('refresh_money_after_sync')) {
+            refresh_money_after_sync($pdo);
+        }
     } catch (Throwable $e) {
         $out['error'] = $e->getMessage();
     }

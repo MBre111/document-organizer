@@ -381,3 +381,67 @@ section.untrusted .untrusted {
 .tx-list .amt.out { color: var(--err); }
 .tx-list .amt.in { color: var(--ok); }
 nav { flex-wrap: wrap; }
+
+.money-subnav { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 0 0 1rem; }
+.money-subnav a { color: var(--muted); text-decoration: none; }
+.money-subnav a.on, .money-subnav a:hover { color: var(--ink); }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+.stat-grid div {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.15rem;
+}
+.stat-grid strong { font-size: 1.15rem; }
+.month-nav { color: var(--muted); }
+.month-nav a { color: var(--accent); }
+.budget-list, .budget-edit, .bill-cards { list-style: none; margin: 0; padding: 0; }
+.budget-list li, .budget-edit li, .bill-cards li {
+  border-bottom: 1px solid var(--line);
+  padding: 0.7rem 0;
+}
+.budget-list a { color: inherit; text-decoration: none; display: grid; gap: 0.15rem; }
+.bar {
+  height: 6px;
+  background: var(--line);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+.bar span { display: block; height: 100%; background: var(--accent); }
+.bar.over span { background: var(--err); }
+.budget-edit label { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.92rem; }
+.budget-edit input[type="number"] {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  max-width: 10rem;
+}
+.txn-assign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+.txn-assign select {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.4rem 0.5rem;
+  min-height: 40px;
+}
+.bill-cards li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 0.6rem; }
+.bill-cards li.paid { border-color: #3a5a3a; }
+.bill-cards li.unpaid { border-color: #6a5420; }

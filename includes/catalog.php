@@ -127,6 +127,18 @@ function write_confirmed_fact(PDO $pdo, array $fact, string $chosen): void
         }
         return;
     }
+    if ($key === 'bill_match') {
+        if (!fact_is_non_answer($chosen)) {
+            confirm_bill_match($pdo, $fact, $chosen);
+        }
+        return;
+    }
+    if ($key === 'txn_category') {
+        if (!fact_is_non_answer($chosen)) {
+            confirm_txn_category($pdo, $fact, $chosen);
+        }
+        return;
+    }
     $docId = (int) ($fact['document_id'] ?? 0);
     if ($docId < 1 || fact_is_non_answer($chosen)) {
         return;

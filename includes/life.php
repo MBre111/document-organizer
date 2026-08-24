@@ -97,6 +97,7 @@ function migrate_life_schema(PDO $pdo): void
     }
     seed_pack_checklist($pdo);
     spawn_recurring_deadlines($pdo);
+    migrate_money_schema($pdo);
 }
 
 function app_state_get(PDO $pdo, string $key): ?string
@@ -593,15 +594,31 @@ function save_recurring_bill(PDO $pdo, array $data): int
                 mb_substr(trim((string) ($data['notes'] ?? '')), 0, 255) ?: null,
                 (int) $id,
             ]);
+            if (!empty($data['doc_type'])) {
+                $slug = doc_type_budget_slug((string) $data['doc_type']);
+                $cid = $slug ? budget_category_id($pdo, $slug) : null;
+                if ($cid) {
+                    $pdo->prepare('UPDATE recurring_bills SET category_id = COALESCE(category_id, ?) WHERE id = ?')
+                        ->execute([$cid, (int) $id]);
+                }
+            }
             spawn_recurring_deadlines($pdo);
             return (int) $id;
         }
     }
+    $catId = isset($data['category_id']) ? (int) $data['category_id'] : 0;
+    if ($catId < 1 && !empty($data['doc_type'])) {
+        $slug = doc_type_budget_slug((string) $data['doc_type']);
+        if ($slug) {
+            $catId = budget_category_id($pdo, $slug) ?? 0;
+        }
+    }
     $pdo->prepare(
-        'INSERT INTO recurring_bills (document_id, payee, amount, currency, cadence, day_of_month, next_due, source, notes, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO recurring_bills (document_id, category_id, payee, amount, currency, cadence, day_of_month, next_due, source, notes, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )->execute([
         $docId > 0 ? $docId : null,
+        $catId > 0 ? $catId : null,
         $payee,
         $amount,
         'USD',

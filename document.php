@@ -73,8 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         materialize_document_google($pdo, $id);
         promote_document_files($pdo, $id);
     } elseif ($action === 'recurring') {
+        $dtype = $pdo->prepare('SELECT doc_type FROM documents WHERE id = ?');
+        $dtype->execute([$id]);
         save_recurring_bill($pdo, [
             'document_id' => $id,
+            'doc_type' => (string) $dtype->fetchColumn(),
             'payee' => (string) ($_POST['payee'] ?? ''),
             'amount' => (string) ($_POST['amount'] ?? ''),
             'day_of_month' => (string) ($_POST['day_of_month'] ?? ''),

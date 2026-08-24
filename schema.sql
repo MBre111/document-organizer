@@ -234,3 +234,35 @@ CREATE TABLE IF NOT EXISTS app_state (
   v TEXT NULL,
   PRIMARY KEY (k)
 );
+
+CREATE TABLE IF NOT EXISTS budget_categories (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(32) NOT NULL,
+  name VARCHAR(80) NOT NULL,
+  kind VARCHAR(16) NOT NULL DEFAULT 'expense',
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  keywords TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_bc_slug (slug)
+);
+
+CREATE TABLE IF NOT EXISTS budget_lines (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  month_key CHAR(7) NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+  planned DECIMAL(10,2) NOT NULL DEFAULT 0,
+  UNIQUE KEY uq_bl_month_cat (month_key, category_id),
+  INDEX idx_bl_month (month_key)
+);
+
+CREATE TABLE IF NOT EXISTS money_rules (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  match_kind VARCHAR(32) NOT NULL DEFAULT 'merchant',
+  match_value VARCHAR(180) NOT NULL,
+  category_id INT UNSIGNED NULL,
+  recurring_bill_id INT UNSIGNED NULL,
+  is_transfer TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_mr_kind (match_kind)
+);

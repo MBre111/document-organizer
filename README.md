@@ -48,7 +48,7 @@ This repo is **code only**. Do not commit real documents, OCR dumps of personal 
 | `index.php` | Today (morning log, coming up, facts) / inbox / library |
 | `journal.php` | Daily journal; saving proposes tasks to tap |
 | `deadline.php` | One task + checklist |
-| `money.php` | Fintable balances/transactions + monthly bills |
+| `money.php` | Budget envelopes, bills, activity, Fintable sync |
 | `upload.php` | Phone-friendly multi-page upload |
 | `document.php` | Viewer, facts, related docs, edit |
 | `facts.php` | Untrusted tap-to-confirm |

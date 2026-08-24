@@ -51,7 +51,7 @@ if ($view === 'today') {
          LEFT JOIN documents d ON d.id = u.document_id
          LEFT JOIN journals j ON j.id = u.journal_id
          WHERE u.status = 'open'
-         ORDER BY (u.journal_id IS NOT NULL) DESC, FIELD(u.importance,'important','normal'), u.id
+         ORDER BY (u.fact_key IN ('proposed_task','bill_match') OR u.journal_id IS NOT NULL) DESC, FIELD(u.importance,'important','normal'), u.id
          LIMIT 8"
     )->fetchAll();
     render_header('Today', 'today');
@@ -64,6 +64,7 @@ if ($view === 'today') {
     echo '<a href="money.php">Money</a>';
     echo '</p>';
     render_morning_log($pdo);
+    render_money_strip($pdo);
     if (table_exists($pdo, 'journals')) {
         $latestJ = $pdo->query('SELECT id, entry_date, title, LEFT(body, 220) AS preview FROM journals ORDER BY entry_date DESC, id DESC LIMIT 1')->fetch();
         if ($latestJ) {

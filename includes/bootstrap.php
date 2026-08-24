@@ -527,4 +527,5 @@ require_once __DIR__ . '/catalog.php';
 require_once __DIR__ . '/cabinet.php';
 require_once __DIR__ . '/life.php';
 require_once __DIR__ . '/fintable.php';
+require_once __DIR__ . '/budget.php';
 
