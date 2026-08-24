@@ -266,3 +266,22 @@ CREATE TABLE IF NOT EXISTS money_rules (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_mr_kind (match_kind)
 );
+
+CREATE TABLE IF NOT EXISTS habits (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(32) NOT NULL,
+  name VARCHAR(80) NOT NULL,
+  keywords TEXT NULL,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  UNIQUE KEY uq_habit_slug (slug)
+);
+
+CREATE TABLE IF NOT EXISTS habit_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  habit_id INT UNSIGNED NOT NULL,
+  done_on DATE NOT NULL,
+  journal_id INT UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_habit_day (habit_id, done_on)
+);

@@ -48,6 +48,9 @@ function render_header(string $title, string $nav = 'today'): void
         <a class="<?= $on('money') ?>" href="money.php">Money</a>
         <a class="<?= $on('facts') ?>" href="facts.php">Confirm<?php if ($factN): ?> <span class="nav-count"><?= $factN ?></span><?php endif; ?></a>
     </nav>
+    <form class="top-search" method="get" action="search.php" role="search">
+        <input type="search" name="q" value="<?= h((string) ($_GET['q'] ?? '')) ?>" placeholder="Search…" aria-label="Search">
+    </form>
     <a class="btn small add-scan <?= $on('upload') ?>" href="upload.php">+ Scan</a>
 </header>
 <main>

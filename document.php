@@ -72,6 +72,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ->execute([$id]);
         materialize_document_google($pdo, $id);
         promote_document_files($pdo, $id);
+    } elseif ($action === 'rotate' || $action === 'ocr_fix') {
+        require_once __DIR__ . '/includes/ingest.php';
+        $fid = (int) ($_POST['file_id'] ?? 0);
+        $fs = $pdo->prepare('SELECT * FROM files WHERE id = ? AND document_id = ?');
+        $fs->execute([$fid, $id]);
+        $file = $fs->fetch();
+        if ($file) {
+            if ($action === 'rotate') {
+                $add = (int) ($_POST['degrees'] ?? 180);
+                $cur = (int) ($file['rotation'] ?? 0);
+                $file['rotation'] = ($cur + $add) % 360;
+                if (column_exists($pdo, 'files', 'rotation')) {
+                    $pdo->prepare('UPDATE files SET rotation = ? WHERE id = ?')->execute([$file['rotation'], $fid]);
+                }
+            } else {
+                $file['rotation'] = 0;
+                $file['_thorough'] = true;
+            }
+            ocr_one_file($pdo, $file);
+        }
     } elseif ($action === 'recurring') {
         $dtype = $pdo->prepare('SELECT doc_type FROM documents WHERE id = ?');
         $dtype->execute([$id]);
@@ -173,7 +193,24 @@ render_header($doc['title'] ?: 'Document', $doc['review_status'] === 'inbox' ? '
         <?php else: ?>
             <a href="<?= h(public_file_url($file['stored_path'])) ?>">Open <?= h($file['original_filename']) ?></a>
         <?php endif; ?>
-        <figcaption>Page <?= (int) ($file['page_no'] ?? 1) ?> of <?= $pageTotal ?> · <?= h($file['original_filename']) ?> · <?= h($file['source']) ?><?php if (!empty($file['ocr_status'])): ?> · ocr <?= h((string) $file['ocr_status']) ?><?php endif; ?></figcaption>
+        <figcaption>
+            Page <?= (int) ($file['page_no'] ?? 1) ?> of <?= $pageTotal ?>
+            · <?= h($file['original_filename']) ?>
+            · <?= h($file['source']) ?>
+            <?php if (!empty($file['ocr_status'])): ?> · ocr <?= h((string) $file['ocr_status']) ?><?php endif; ?>
+            <?php if (!empty($file['rotation'])): ?> · rotated <?= (int) $file['rotation'] ?>°<?php endif; ?>
+        </figcaption>
+        <?php if ($isImage): ?>
+            <form method="post" class="add-row" style="margin-top:0.4rem">
+                <input type="hidden" name="file_id" value="<?= (int) $file['id'] ?>">
+                <button class="btn small ghost" name="action" value="rotate" type="submit">Rotate 180°</button>
+                <input type="hidden" name="degrees" value="180">
+            </form>
+            <form method="post" class="inline-form">
+                <input type="hidden" name="file_id" value="<?= (int) $file['id'] ?>">
+                <button class="btn small ghost" name="action" value="ocr_fix" type="submit">Fix upside-down OCR</button>
+            </form>
+        <?php endif; ?>
     </figure>
 <?php endforeach; ?>
 

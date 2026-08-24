@@ -47,6 +47,8 @@ This repo is **code only**. Do not commit real documents, OCR dumps of personal 
 |---|---|
 | `index.php` | Today (morning log, coming up, facts) / inbox / library |
 | `journal.php` | Daily journal; saving proposes tasks to tap |
+| `search.php` | Unified search (docs, wiki, journal, tasks) |
+| `entity.php` | Wiki person/place page (journal, tasks, docs) |
 | `deadline.php` | One task + checklist |
 | `money.php` | Budget envelopes, bills, activity, Fintable sync |
 | `upload.php` | Phone-friendly multi-page upload |

@@ -64,6 +64,7 @@ if ($view === 'today') {
     echo $moneyLeft === null ? 'Set' : h(money_plain($moneyLeft));
     echo '</b></a></div>';
     render_deadline_strip($pdo);
+    render_habits($pdo);
     if ($factRows) {
         require_once __DIR__ . '/includes/facts_ui.php';
         echo '<h2>Tap these</h2>';

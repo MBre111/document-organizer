@@ -574,3 +574,28 @@ section.untrusted .untrusted {
 .bill-cards li.unpaid { border-color: #6a5420; }
 
 .page-meta-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0 0 1rem; }
+
+.top-search { flex: 1 1 11rem; min-width: 8rem; max-width: 18rem; }
+.top-search input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  min-height: 36px;
+}
+.habit-add { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+.habit-add input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 0.4rem 0.65rem;
+  font: inherit;
+}
+@media (max-width: 820px) {
+  .top-search { flex: 1 1 100%; max-width: none; order: 3; }
+}

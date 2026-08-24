@@ -6,8 +6,37 @@ require __DIR__ . '/includes/bootstrap.php';
 require __DIR__ . '/includes/layout.php';
 require __DIR__ . '/includes/facts_ui.php';
 
-$id = (int) ($_GET['id'] ?? 0);
 $pdo = db();
+$id = (int) ($_GET['id'] ?? 0);
+
+if ($id < 1) {
+    $groups = [];
+    if (table_exists($pdo, 'entities')) {
+        $rows = $pdo->query('SELECT id, kind, name FROM entities ORDER BY kind, name')->fetchAll();
+        foreach ($rows as $row) {
+            $groups[(string) $row['kind']][] = $row;
+        }
+    }
+    render_header('Wiki', 'library');
+    echo '<p class="back"><a href="index.php">← Today</a></p>';
+    echo '<h1>Wiki</h1>';
+    echo '<p class="lede">People, places, and things that journals and documents keep linking back to.</p>';
+    if (!$groups) {
+        echo '<p class="muted">Nothing here yet.</p>';
+        render_footer();
+        exit;
+    }
+    foreach ($groups as $kind => $rows) {
+        echo '<h2>' . h($kind) . '</h2><ul class="docs">';
+        foreach ($rows as $row) {
+            echo '<li><a href="entity.php?id=' . (int) $row['id'] . '"><strong>' . h((string) $row['name']) . '</strong></a></li>';
+        }
+        echo '</ul>';
+    }
+    render_footer();
+    exit;
+}
+
 $stmt = $pdo->prepare('SELECT * FROM entities WHERE id = ?');
 $stmt->execute([$id]);
 $ent = $stmt->fetch();
@@ -50,10 +79,45 @@ if (($ent['kind'] ?? '') === 'case' && table_exists($pdo, 'cases')) {
     $caseRow = $c->fetch() ?: null;
 }
 
-render_header($ent['name'] ?: 'Entity', 'library');
+$journals = [];
+if (table_exists($pdo, 'journal_entities')) {
+    $js = $pdo->prepare(
+        'SELECT j.id, j.entry_date, j.title, LEFT(j.body, 180) AS preview, je.role
+         FROM journal_entities je
+         JOIN journals j ON j.id = je.journal_id
+         WHERE je.entity_id = ?
+         ORDER BY j.entry_date DESC, j.id DESC'
+    );
+    $js->execute([$id]);
+    $journals = $js->fetchAll();
+}
+
+$tasks = [];
+if (table_exists($pdo, 'deadlines')) {
+    $tq = $pdo->prepare(
+        "SELECT DISTINCT dl.id, dl.due_on, dl.kind, dl.title, dl.status
+         FROM deadlines dl
+         LEFT JOIN journal_entities je ON je.journal_id = dl.journal_id
+         LEFT JOIN document_entities de ON de.document_id = dl.document_id
+         WHERE dl.entity_id = ? OR je.entity_id = ? OR de.entity_id = ?
+         ORDER BY (dl.status = 'open') DESC, dl.due_on ASC
+         LIMIT 20"
+    );
+    $tq->execute([$id, $id, $id]);
+    $tasks = $tq->fetchAll();
+}
+
+$meas = [];
+if (table_exists($pdo, 'measurements') && ($ent['kind'] ?? '') === 'person' && $ent['name'] === 'Michael David Bredin') {
+    $meas = $pdo->query(
+        "SELECT taken_on, value_num, unit, conditions FROM measurements WHERE kind = 'weight' ORDER BY taken_on DESC LIMIT 12"
+    )->fetchAll();
+}
+
+render_header($ent['name'] ?: 'Wiki', 'library');
 ?>
-<p class="back"><a href="index.php?view=library">← Library</a></p>
-<p class="meta"><?= h((string) $ent['kind']) ?></p>
+<p class="back"><a href="entity.php">← Wiki</a></p>
+<p class="page-meta-row"><span class="pill"><?= h((string) $ent['kind']) ?></span></p>
 <h1><?= h((string) $ent['name']) ?></h1>
 <?php if (!empty($ent['notes'])): ?>
     <p><?= nl2br(h((string) $ent['notes'])) ?></p>
@@ -70,26 +134,20 @@ render_header($ent['name'] ?: 'Entity', 'library');
     </dl>
 <?php endif; ?>
 
-<?php
-$journals = [];
-if (table_exists($pdo, 'journal_entities')) {
-    $js = $pdo->prepare(
-        'SELECT j.id, j.entry_date, j.title, LEFT(j.body, 160) AS preview, je.role
-         FROM journal_entities je
-         JOIN journals j ON j.id = je.journal_id
-         WHERE je.entity_id = ?
-         ORDER BY j.entry_date DESC, j.id DESC'
-    );
-    $js->execute([$id]);
-    $journals = $js->fetchAll();
-}
-$meas = [];
-if (table_exists($pdo, 'measurements') && ($ent['kind'] ?? '') === 'person' && $ent['name'] === 'Michael David Bredin') {
-    $meas = $pdo->query(
-        "SELECT taken_on, value_num, unit, conditions FROM measurements WHERE kind = 'weight' ORDER BY taken_on DESC"
-    )->fetchAll();
-}
-?>
+<?php if ($tasks): ?>
+    <h2>Tasks</h2>
+    <ul class="docs">
+        <?php foreach ($tasks as $row): ?>
+            <li>
+                <a href="deadline.php?id=<?= (int) $row['id'] ?>">
+                    <strong><?= h((string) $row['title']) ?></strong>
+                    <span class="meta"><?= h((string) $row['due_on']) ?> · <?= h(kind_label((string) $row['kind'])) ?> · <?= h((string) $row['status']) ?></span>
+                </a>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+<?php endif; ?>
+
 <?php if ($meas): ?>
     <h2>Weight</h2>
     <ul>
@@ -99,6 +157,7 @@ if (table_exists($pdo, 'measurements') && ($ent['kind'] ?? '') === 'person' && $
         <?php endforeach; ?>
     </ul>
 <?php endif; ?>
+
 <?php if ($journals): ?>
     <h2>Journal</h2>
     <ul class="docs">
@@ -112,6 +171,9 @@ if (table_exists($pdo, 'measurements') && ($ent['kind'] ?? '') === 'person' && $
             </li>
         <?php endforeach; ?>
     </ul>
+<?php else: ?>
+    <h2>Journal</h2>
+    <p class="muted">No journal lines linked yet. New entries that name this page will show up here.</p>
 <?php endif; ?>
 
 <h2>Documents</h2>

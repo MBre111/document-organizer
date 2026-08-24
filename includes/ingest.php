@@ -196,6 +196,106 @@ function ocr_document_files(PDO $pdo, int $docId): void
     }
 }
 
+function ocr_text_score(string $text): float
+{
+    $compact = preg_replace('/\s+/', '', $text) ?? '';
+    if ($compact === '') {
+        return 0.0;
+    }
+    $good = preg_match_all('/[A-Za-z0-9]/', $compact);
+    return (float) $good * ($good / max(strlen($compact), 1));
+}
+
+function tesseract_osd_degrees(string $tess, string $path): ?int
+{
+    $out = run_tool([$tess, $path, 'stdout', '--psm', '0']);
+    if (preg_match('/Orientation in degrees:\s*(\d+)/i', $out, $m)) {
+        $d = (int) $m[1];
+        if (in_array($d, [0, 90, 180, 270], true)) {
+            return $d;
+        }
+    }
+    return null;
+}
+
+function rotate_image_temp(string $path, int $clockwise): ?string
+{
+    if (!function_exists('imagerotate')) {
+        return null;
+    }
+    $info = @getimagesize($path);
+    if (!$info) {
+        return null;
+    }
+    $im = match ($info[2]) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($path),
+        IMAGETYPE_PNG => @imagecreatefrompng($path),
+        IMAGETYPE_GIF => @imagecreatefromgif($path),
+        default => false,
+    };
+    if (!$im) {
+        return null;
+    }
+    $ccw = (360 - ($clockwise % 360)) % 360;
+    if ($ccw === 0) {
+        imagedestroy($im);
+        return null;
+    }
+    $rot = imagerotate($im, $ccw, 0);
+    imagedestroy($im);
+    if (!$rot) {
+        return null;
+    }
+    $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'orgrot-' . bin2hex(random_bytes(4)) . '.jpg';
+    $ok = imagejpeg($rot, $tmp, 90);
+    imagedestroy($rot);
+    return $ok ? $tmp : null;
+}
+
+function tesseract_read(string $tess, string $path): string
+{
+    return run_tool([$tess, $path, 'stdout', '-l', 'eng', '--psm', '3']);
+}
+
+function ocr_image_upright(string $tess, string $full, int $knownRot = 0, bool $thorough = false): array
+{
+    if ($knownRot !== 0 && !$thorough) {
+        $angles = [$knownRot];
+    } else {
+        $angles = [0, 180];
+        if ($thorough) {
+            $angles = [0, 90, 180, 270];
+        } else {
+            $osd = tesseract_osd_degrees($tess, $full);
+            if ($osd !== null && !in_array($osd, $angles, true)) {
+                $angles[] = $osd;
+            }
+        }
+    }
+    $best = ['text' => '', 'rotation' => 0, 'score' => -1.0];
+    foreach ($angles as $ang) {
+        $src = $full;
+        $tmp = null;
+        if ((int) $ang !== 0) {
+            $tmp = rotate_image_temp($full, (int) $ang);
+            if (!$tmp) {
+                continue;
+            }
+            $src = $tmp;
+        }
+        $text = tesseract_read($tess, $src);
+        if ($tmp) {
+            @unlink($tmp);
+        }
+        $score = ocr_text_score($text);
+        if ($score > $best['score']) {
+            $best = ['text' => $text, 'rotation' => (int) $ang, 'score' => $score];
+        }
+    }
+    return $best;
+}
+
+
 function ocr_one_file(PDO $pdo, array $file): void
 {
     $full = storage_path((string) $file['stored_path']);
@@ -213,7 +313,10 @@ function ocr_one_file(PDO $pdo, array $file): void
                 mark_ocr($pdo, (int) $file['id'], 'skipped', null);
                 return;
             }
-            $text = run_tool([$tess, $full, 'stdout', '-l', 'eng', '--psm', '3']);
+            $known = (int) ($file['rotation'] ?? 0);
+            $got = ocr_image_upright($tess, $full, $known, !empty($file['_thorough']));
+            $text = $got['text'];
+            $file['_rotation'] = (int) $got['rotation'];
             $status = $text === '' ? 'empty' : 'ok';
         } elseif (str_contains($mime, 'wordprocessingml') || str_ends_with(strtolower((string) $file['stored_path']), '.docx')) {
             $text = extract_docx_text($full);
@@ -252,11 +355,17 @@ function ocr_one_file(PDO $pdo, array $file): void
         mark_ocr($pdo, (int) $file['id'], 'error', null);
         return;
     }
-    mark_ocr($pdo, (int) $file['id'], $status, $text !== '' ? $text : null);
+    $rot = isset($file['_rotation']) ? (int) $file['_rotation'] : null;
+    mark_ocr($pdo, (int) $file['id'], $status, $text !== '' ? $text : null, $rot);
 }
 
-function mark_ocr(PDO $pdo, int $fileId, string $status, ?string $text): void
+function mark_ocr(PDO $pdo, int $fileId, string $status, ?string $text, ?int $rotation = null): void
 {
+    if ($rotation !== null && column_exists($pdo, 'files', 'rotation')) {
+        $pdo->prepare('UPDATE files SET ocr_text = ?, ocr_status = ?, ocr_at = NOW(), rotation = ? WHERE id = ?')
+            ->execute([$text, $status, $rotation, $fileId]);
+        return;
+    }
     $pdo->prepare('UPDATE files SET ocr_text = ?, ocr_status = ?, ocr_at = NOW() WHERE id = ?')
         ->execute([$text, $status, $fileId]);
 }

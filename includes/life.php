@@ -98,6 +98,10 @@ function migrate_life_schema(PDO $pdo): void
     seed_pack_checklist($pdo);
     spawn_recurring_deadlines($pdo);
     migrate_money_schema($pdo);
+    migrate_habits_schema($pdo);
+    if (table_exists($pdo, 'files') && !column_exists($pdo, 'files', 'rotation')) {
+        $pdo->exec('ALTER TABLE files ADD COLUMN rotation SMALLINT NOT NULL DEFAULT 0');
+    }
 }
 
 function app_state_get(PDO $pdo, string $key): ?string
@@ -324,6 +328,8 @@ function save_journal_entry(PDO $pdo, string $date, string $body, string $title 
     $jid = (int) $pdo->lastInsertId();
     extract_journal_weight($pdo, $jid, $body, $date);
     propose_journal_tasks($pdo, $jid, $body, $date);
+    tick_habits_from_text($pdo, $body, $date, $jid);
+    link_journal_entities($pdo, $jid, $body);
     return $jid;
 }
 
@@ -447,7 +453,19 @@ function handle_today_post(PDO $pdo): void
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         return;
     }
-    if ((string) ($_POST['action'] ?? '') !== 'today_log') {
+    $action = (string) ($_POST['action'] ?? '');
+    if ($action === 'habit_toggle') {
+        $date = date('Y-m-d');
+        habit_set($pdo, (int) ($_POST['habit_id'] ?? 0), $date, (string) ($_POST['done'] ?? '1') === '1');
+        header('Location: index.php', true, 303);
+        exit;
+    }
+    if ($action === 'habit_add') {
+        add_habit($pdo, (string) ($_POST['habit_name'] ?? ''));
+        header('Location: index.php', true, 303);
+        exit;
+    }
+    if ($action !== 'today_log') {
         return;
     }
     $date = trim((string) ($_POST['entry_date'] ?? date('Y-m-d')));
