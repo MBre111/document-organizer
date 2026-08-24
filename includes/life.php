@@ -99,6 +99,7 @@ function migrate_life_schema(PDO $pdo): void
     spawn_recurring_deadlines($pdo);
     migrate_money_schema($pdo);
     migrate_habits_schema($pdo);
+    migrate_meds_schema($pdo);
     if (table_exists($pdo, 'files') && !column_exists($pdo, 'files', 'rotation')) {
         $pdo->exec('ALTER TABLE files ADD COLUMN rotation SMALLINT NOT NULL DEFAULT 0');
     }
@@ -329,6 +330,13 @@ function save_journal_entry(PDO $pdo, string $date, string $body, string $title 
     extract_journal_weight($pdo, $jid, $body, $date);
     propose_journal_tasks($pdo, $jid, $body, $date);
     tick_habits_from_text($pdo, $body, $date, $jid);
+    if (preg_match('/supplement|medication|\bmeds\b|took my morning/i', $body)) {
+        foreach (medications_active($pdo) as $m) {
+            if (in_array((string) $m['timing'], ['morning', 'both'], true)) {
+                med_set_log($pdo, (int) $m['id'], $date, 'morning', 'taken');
+            }
+        }
+    }
     link_journal_entities($pdo, $jid, $body);
     return $jid;
 }
@@ -462,6 +470,17 @@ function handle_today_post(PDO $pdo): void
     }
     if ($action === 'habit_add') {
         add_habit($pdo, (string) ($_POST['habit_name'] ?? ''));
+        header('Location: index.php', true, 303);
+        exit;
+    }
+    if ($action === 'med_log') {
+        med_set_log(
+            $pdo,
+            (int) ($_POST['med_id'] ?? 0),
+            date('Y-m-d'),
+            (string) ($_POST['slot'] ?? 'morning'),
+            (string) ($_POST['status'] ?? 'taken')
+        );
         header('Location: index.php', true, 303);
         exit;
     }

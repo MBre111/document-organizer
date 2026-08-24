@@ -285,3 +285,30 @@ CREATE TABLE IF NOT EXISTS habit_logs (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_habit_day (habit_id, done_on)
 );
+
+
+CREATE TABLE IF NOT EXISTS medications (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  kind VARCHAR(16) NOT NULL DEFAULT 'supplement',
+  dose VARCHAR(80) NULL,
+  timing VARCHAR(16) NOT NULL DEFAULT 'morning',
+  time_window VARCHAR(32) NULL,
+  notes VARCHAR(255) NULL,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_med_status (status, timing)
+);
+
+CREATE TABLE IF NOT EXISTS med_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  medication_id INT UNSIGNED NOT NULL,
+  taken_on DATE NOT NULL,
+  taken_at DATETIME NULL,
+  slot VARCHAR(16) NOT NULL DEFAULT 'morning',
+  status VARCHAR(16) NOT NULL DEFAULT 'taken',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_med_day_slot (medication_id, taken_on, slot),
+  INDEX idx_ml_day (taken_on)
+);

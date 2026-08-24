@@ -599,3 +599,6 @@ section.untrusted .untrusted {
 @media (max-width: 820px) {
   .top-search { flex: 1 1 100%; max-width: none; order: 3; }
 }
+
+.check-list li.skipped .choice { color: var(--muted); }
+.med-list .inline-form { margin-top: 0.35rem; }

@@ -128,10 +128,14 @@ function render_habits(PDO $pdo): void
     if (!$rows) {
         return;
     }
+    $hideMeds = function_exists('medications_active') && medications_active($pdo);
     echo '<section class="coming-up habits">';
     echo '<h2>Habits</h2>';
     echo '<ul class="check-list">';
     foreach ($rows as $h) {
+        if ($hideMeds && ($h['slug'] ?? '') === 'meds') {
+            continue;
+        }
         $on = !empty($h['log_id']);
         echo '<li class="' . ($on ? 'done' : '') . '">';
         echo '<form method="post">';
